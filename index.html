@@ -104,7 +104,12 @@ select{background:var(--surface);border:1px solid var(--line);border-radius:8px;
 .card .yr{color:var(--muted);font-size:14px;font-weight:500}
 .card .name{font-family:"Barlow Condensed",sans-serif;font-weight:600;font-size:26px;line-height:1.05;margin-top:2px}
 .stocktag{background:var(--signal);color:var(--signal-ink);font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:18px;padding:3px 10px 4px;border-radius:4px;white-space:nowrap;letter-spacing:.02em}
-.vin{padding:0 18px;color:var(--muted);font-size:13px;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+.vin{padding:0 18px;color:var(--muted);font-size:13px;letter-spacing:.06em;font-variant-numeric:tabular-nums;display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.vinbtn{display:inline-flex;align-items:center;gap:5px;margin-left:8px;padding:2px 9px 2px 7px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font:600 12px/1.5 Barlow,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;letter-spacing:0;text-decoration:none;white-space:nowrap;vertical-align:middle;cursor:pointer}
+.vinbtn:hover{border-color:var(--signal);background:color-mix(in srgb,var(--signal) 14%,var(--surface))}
+.vinbtn svg{flex:none}
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 74px);transform:translate(-50%,-8px);z-index:30;max-width:calc(100vw - 32px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
+.toast.on{opacity:1;transform:translate(-50%,0)}
 .specs{display:flex;flex-wrap:wrap;gap:6px 16px;padding:12px 18px;font-size:14px}
 .specs span{display:inline-flex;align-items:center;gap:6px}
 .swatch{width:12px;height:12px;border-radius:50%;border:1px solid var(--line);display:inline-block}
@@ -289,6 +294,7 @@ dialog .close{border:0;background:var(--sunk);border-radius:8px;width:36px;heigh
 </main>
 
 <dialog id="dlg" aria-labelledby="dlgTitle"><div id="dlgBody"></div></dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
 (function(){
@@ -317,12 +323,40 @@ dialog .close{border:0;background:var(--sunk);border-radius:8px;width:36px;heigh
   function enrich(r){
     const cost = num(g(r,"BUYING COST")), sell = num(g(r,"SELL PRICE"));
     r.cost=cost; r.sell=sell; r.margin = (cost!=null && sell!=null) ? sell-cost : null;
+    // Sell + Reserve: a reserve marked USD is converted with the row's FX, the same way Buying Cost USD relates to Buying Cost
+    const res=num(g(r,"RESERVE PRICE")), resCur=String(g(r,"RESERVE CURRENCY")??"").toUpperCase(), fx=num(g(r,"FX"));
+    r.resConverted = res!=null && resCur.includes("USD") && fx ? res*fx : res;
+    r.resWasUSD = res!=null && resCur.includes("USD") && !!fx;
+    r.sellRes = (sell==null && r.resConverted==null) ? null : (sell??0)+(r.resConverted??0);
     r.days = num(g(r,"STOCK DAYS")); r.year=num(g(r,"YEAR")); r.miles=num(g(r,"MILES"));
     r.status = g(r,"SOLD TO") ? "sold" : g(r,"RESERVE TO") ? "res" : truthy(g(r,"IN TRANSIT")) ? "transit" : "avail";
     r.hay = Object.values(r.data).map(v=>v instanceof Date?v.toISOString():String(v??"")).join(" ").toLowerCase();
     return r;
   }
   const truthy = v => v!=null && !/^(no|n|false|0)$/i.test(String(v).trim());
+
+  // ---------- VIN search in the Transcan dashboard ----------
+  // The VIN travels in the address (?tcvin=). The "Transcan VIN search" userscript on the dashboard reads it,
+  // types it into the search bar and runs the search. Without the userscript, the VIN is on the clipboard to paste.
+  const DASH = "https://dashboard.transcanauto.com/", DASH_ROUTE = "#/superAdmin/vehicles/business";
+  const dashUrl = vin => `${DASH}?tcvin=${encodeURIComponent(vin)}${DASH_ROUTE}`;
+  const SEARCH_ICON = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`;
+  const vinBtn = vin => vin ? `<a class="vinbtn" href="${esc(dashUrl(String(vin)))}" target="transcan-dashboard" data-vin="${esc(vin)}" title="Search this VIN in the Transcan dashboard" aria-label="Search ${esc(vin)} in the Transcan dashboard">${SEARCH_ICON}Search</a>` : "";
+  async function copyText(t){
+    try{ await navigator.clipboard.writeText(t); return true; }catch(e){}
+    try{ const ta=document.createElement("textarea"); ta.value=t; ta.setAttribute("readonly","");
+      ta.style.cssText="position:fixed;opacity:0;top:0;left:0"; document.body.appendChild(ta); ta.select();
+      const ok=document.execCommand("copy"); ta.remove(); return ok; }catch(e){ return false; }
+  }
+  let toastTimer;
+  function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("on");
+    clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("on"),3200); }
+  document.addEventListener("click",e=>{
+    const a=e.target.closest(".vinbtn"); if(!a) return;
+    e.stopPropagation();
+    const vin=a.dataset.vin;
+    copyText(vin).then(ok=>toast(ok ? `Copied ${vin}. Searching it in the Transcan dashboard.` : `Searching ${vin} in the Transcan dashboard.`));
+  });
   const STATUS = {sold:["Sold","st-sold"],res:["Reserved","st-res"],transit:["In transit","st-transit"],avail:["Available","st-avail"]};
   const ageColor = d => d==null?"var(--muted)": d<15?"var(--fresh)": d<=30?"var(--aging)":"var(--stale)";
 
@@ -483,11 +517,11 @@ dialog .close{border:0;background:var(--sunk);border-radius:8px;width:36px;heigh
       const color=g(r,"COLOR"), carfax=r.links["CARFAX"];
       const days=r.days, pctAge=Math.min(100,(days??0)/45*100);
       const party = r.status==="sold"?["Sold to",g(r,"SOLD TO")]: r.status==="res"?["Reserved to",g(r,"RESERVE TO")]:null;
-      return `<button class="card" data-id="${r.id}" aria-label="${esc(`${r.year??""} ${make} ${model}, stock ${g(r,"STOCK")??""}`)}">
+      return `<div class="card" role="group" tabindex="0" data-id="${r.id}" aria-label="${esc(`${r.year??""} ${make} ${model}, stock ${g(r,"STOCK")??""}`)}">
         <div class="hd"><div><div class="yr">${esc(r.year??"")}${g(r,"MARKETPLACE")?` · ${esc(g(r,"MARKETPLACE"))}`:""}</div>
           <div class="name">${esc(make)} ${esc(model)}</div></div>
           ${g(r,"STOCK")?`<span class="stocktag">${esc(g(r,"STOCK"))}</span>`:""}</div>
-        ${g(r,"VIN")?`<div class="vin">${esc(g(r,"VIN"))}</div>`:""}
+        ${g(r,"VIN")?`<div class="vin"><span>${esc(g(r,"VIN"))}</span>${vinBtn(g(r,"VIN"))}</div>`:""}
         <div class="specs">
           ${r.miles!=null?`<span>${nf0.format(r.miles)} mi</span>`:""}
           ${color?`<span><i class="swatch" style="background:${swatch(color)}"></i>${esc(title(color))}</span>`:`<span style="color:var(--muted)">Color not set</span>`}
@@ -509,24 +543,30 @@ dialog .close{border:0;background:var(--sunk);border-radius:8px;width:36px;heigh
           ${carfax?`<a class="link" href="${esc(carfax)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Carfax</a>`:""}
           <span class="status ${sc}">${sl}</span>
         </div>
-      </button>`;}).join("")}</div>`;
-    $("#results").querySelectorAll(".card").forEach(c=>c.onclick=()=>openDetail(+c.dataset.id));
+      </div>`;}).join("")}</div>`;
+    $("#results").querySelectorAll(".card").forEach(c=>{
+      c.onclick=e=>{ if(e.target.closest("a,button")) return; openDetail(+c.dataset.id); };
+      c.onkeydown=e=>{ if(e.target===c && (e.key==="Enter"||e.key===" ")){ e.preventDefault(); openDetail(+c.dataset.id); } };
+    });
   }
 
   // ---------- table view ----------
+  const SR="Sell + Reserve";
   function tableCols(){
     const hs=[...state.headers]; state.virt=new Set();
     const add=(name,afterKey)=>{ if(hs.some(h=>norm(h)===name.toUpperCase())) return;
       const i=hs.findIndex(h=>norm(h)===afterKey); hs.splice(i>=0?i+1:hs.length,0,name); state.virt.add(name); };
     add("Status","STOCK");
     if(state.rows.some(r=>r.margin!=null)) add("Margin","SELL PRICE");
+    if(state.headers.some(h=>norm(h)==="SELL PRICE") && state.headers.some(h=>norm(h)==="RESERVE PRICE"))
+      add(SR, state.virt.has("Margin") ? "MARGIN" : "SELL PRICE");
     return hs;
   }
-  const colVal=(r,h)=> state.virt&&state.virt.has(h) ? (h==="Margin"?r.margin:STATUS[r.status][0]) : r.raw[h];
+  const colVal=(r,h)=> state.virt&&state.virt.has(h) ? (h==="Margin"?r.margin:h===SR?r.sellRes:STATUS[r.status][0]) : r.raw[h];
   const numCache=new Map();
-  const isNumCol=h=>{ if(h==="Margin"&&state.virt&&state.virt.has(h)) return true;
+  const isNumCol=h=>{ if((h==="Margin"||h===SR)&&state.virt&&state.virt.has(h)) return true;
     if(!numCache.has(h)) numCache.set(h,state.rows.some(r=>typeof r.raw[h]==="number")); return numCache.get(h); };
-  const isMoneyCol=h=> (h==="Margin"&&state.virt.has(h)) || (/COST|PRICE/.test(norm(h)) && isNumCol(h));
+  const isMoneyCol=h=> ((h==="Margin"||h===SR)&&state.virt.has(h)) || (/COST|PRICE/.test(norm(h)) && isNumCol(h));
   const label=h=> state.virt&&state.virt.has(h) ? h : title(norm(h));
   const toNum=t=>Number(String(t).replace(/[$,\s]/g,""));
 
@@ -596,6 +636,7 @@ dialog .close{border:0;background:var(--sunk);border-radius:8px;width:36px;heigh
     if(link) txt=`<a class="link" href="${esc(link)}" target="_blank" rel="noopener">${txt||"Open"}</a>`;
     if(k==="NOTES") return `<td class="notes"><div class="clamp" title="${esc(v??"")}">${txt}</div></td>`;
     if(k==="STOCK") return `<td class="stick1 stockcell">${txt}</td>`;
+    if(k==="VIN" && v) return `<td>${txt}${vinBtn(v)}</td>`;
     return `<td class="${c}">${txt}</td>`;
   }
   const rowHTML=r=>`<tr data-id="${r.id}" tabindex="0" class="${state.selected.has(r.id)?"picked":""}"><td class="sel stick0"><input type="checkbox" data-id="${r.id}"${state.selected.has(r.id)?" checked":""} aria-label="Select ${esc(g(r,"STOCK")??"vehicle")}"></td>${state.vis.map(h=>cellHTML(r,h)).join("")}</tr>`;
@@ -733,7 +774,9 @@ dialog .close{border:0;background:var(--sunk);border-radius:8px;width:36px;heigh
       const k=norm(h), v=r.raw[h], link=r.links[k];
       let txt = /COST|PRICE/.test(k)&&typeof v==="number" ? money(v) : fmtCell(v,k);
       txt = link ? `<a class="link" href="${esc(link)}" target="_blank" rel="noopener">${esc(txt||"Open")}</a>` : esc(txt);
+      if(k==="VIN" && v) txt += vinBtn(v);
       return `<dt>${esc(title(norm(h)).replace(/\bUsd\b/,"USD").replace(/\bCad\b/,"CAD").replace(/\bVin\b/,"VIN").replace(/\bFx\b/,"FX").replace(/\bCr\b/,"CR"))}</dt><dd>${txt}</dd>`; });
+    if(r.sellRes!=null && state.headers.some(h=>norm(h)==="RESERVE PRICE")) items.push(`<dt>Sell + Reserve</dt><dd><b>${money(r.sellRes)}</b>${r.resWasUSD?` (reserve converted from USD at ${r.raw[state.headers.find(h=>norm(h)==="FX")]})`:""}</dd>`);
     if(r.margin!=null) items.push(`<dt>Margin</dt><dd class="${r.margin>=0?"pos":"neg"}"><b>${money(r.margin)}</b>${r.cost?` (${(r.margin/r.cost*100).toFixed(1)}% on cost)`:""}</dd>`);
     const empty = state.headers.filter(h=>r.raw[h]==null);
     $("#dlgBody").innerHTML=`<div class="dh"><div><div style="color:var(--muted);font-weight:500">${esc(r.year??"")} · <span class="status ${sc}">${sl}</span></div>
