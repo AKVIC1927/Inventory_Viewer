@@ -188,7 +188,12 @@ tr.grp:hover td{background:color-mix(in srgb,var(--ink) 6%,var(--sunk))}
 tr.grp[aria-expanded="true"] .chev{transform:rotate(90deg)}
 .gstat{color:var(--muted);font-size:13px}
 .gstat b{color:var(--ink);font-weight:600}
-tfoot td{position:sticky;bottom:0;background:var(--sunk);font-weight:600;border-top:1px solid var(--line);border-bottom:0;z-index:2}
+tfoot td{position:sticky;background:var(--sunk);font-weight:600;border-top:1px solid var(--line);border-bottom:0;z-index:2;height:40px}
+tfoot tr.tot td{bottom:40px}
+tfoot tr.avg td{bottom:0;font-weight:500;border-top-style:dashed}
+tfoot td.flabel{color:var(--muted);font-weight:600}
+.compact tfoot td{height:32px}
+.compact tfoot tr.tot td{bottom:32px}
 tr.none td{padding:48px 16px;text-align:center;color:var(--muted);white-space:normal}
 .selbar{position:sticky;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);z-index:4;display:flex;flex-wrap:wrap;align-items:center;gap:8px 22px;background:var(--ink);color:var(--bg);padding:12px 16px;border-radius:12px;margin-bottom:24px;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
 .selbar b{font-weight:600}
@@ -626,15 +631,27 @@ dialog .close{border:0;background:var(--sunk);border-radius:8px;width:36px;heigh
     } else html=rows.map(rowHTML).join("");
     $("#tbody").innerHTML=html;
 
-    // totals row
-    const st=stats(rows); let labelled=false;
-    $("#tfoot").innerHTML = rows.length ? `<tr><td class="sel stick0"></td>${vis.map(h=>{
-      const k=norm(h), cl=(isNumCol(h)?"num ":"")+(k==="STOCK"?"stick1":"");
-      let t="";
-      if(isMoneyCol(h)){ const sum=rows.reduce((a,r)=>a+(typeof colVal(r,h)==="number"?colVal(r,h):0),0); t=money(sum); }
-      else if(k==="STOCK DAYS"||k==="MILES"){ const xs=rows.map(r=>colVal(r,h)).filter(x=>typeof x==="number"); t=xs.length?`avg ${nf0.format(xs.reduce((a,b)=>a+b,0)/xs.length)}`:""; }
-      else if(!labelled){ labelled=true; t=`Totals for ${st.n}`; }
-      return `<td class="${cl}${h==="Margin"&&state.virt.has(h)?(st.margin>=0?" pos":" neg"):""}">${esc(t)}</td>`;}).join("")}</tr>` : "";
+    // totals + averages rows
+    const st=stats(rows);
+    const labelCol = vis.find(h=>norm(h)==="STOCK") || vis.find(h=>!isNumCol(h));
+    const nums=h=>rows.map(r=>colVal(r,h)).filter(x=>typeof x==="number");
+    const isMarginCol=h=>h==="Margin"&&state.virt.has(h);
+    const avgText=(h,a)=>{ const k=norm(h);
+      if(isMoneyCol(h)) return (isMarginCol(h)&&a>0?"+":"")+money(a);
+      if(k==="STOCK DAYS"||k==="YEAR") return a.toFixed(1);
+      if(Math.abs(a)<100) return a.toLocaleString("en-CA",{maximumFractionDigits:2});
+      return nf0.format(a); };
+    const footRow=kind=>`<tr class="${kind}"><td class="sel stick0"></td>${vis.map(h=>{
+      const k=norm(h); let cl=(isNumCol(h)?"num ":"")+(k==="STOCK"?"stick1 ":""), t="", style="";
+      if(h===labelCol){ t = kind==="tot" ? `Totals (${st.n})` : "Averages"; cl+="flabel"; }
+      else if(isNumCol(h)){ const xs=nums(h);
+        if(xs.length){ const sum=xs.reduce((a,b)=>a+b,0), avg=sum/xs.length;
+          if(kind==="tot" && isMoneyCol(h)) t=(isMarginCol(h)&&sum>0?"+":"")+money(sum);
+          if(kind==="avg") t=avgText(h,avg);
+          if(isMarginCol(h)) cl+= sum>=0?"pos":"neg";
+          if(kind==="avg" && k==="STOCK DAYS") style=` style="color:${ageColor(avg)}"`; } }
+      return `<td class="${cl.trim()}"${style}>${esc(t)}</td>`; }).join("")}</tr>`;
+    $("#tfoot").innerHTML = rows.length ? footRow("tot")+footRow("avg") : "";
 
     // select-all checkbox
     const shown=rows.map(r=>r.id), nSel=shown.filter(id=>state.selected.has(id)).length, sa=$("#selAll");
