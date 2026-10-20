@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vehicle inventory viewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#E9EDF0; --surface:#FFFFFF; --sunk:#F3F5F7; --ink:#15212C; --muted:#5B6874; --line:#D3DAE0;
+  --signal:#F0B323; --signal-ink:#3A2A00;
+  --fresh:#2F8F5B; --aging:#C98A06; --stale:#C2412D;
+  --pos:#2F8F5B; --neg:#C2412D;
+  --head:rgba(233,237,240,.92);
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#10171D; --surface:#18222A; --sunk:#141D24; --ink:#E6ECF0; --muted:#93A1AD; --line:#2A3742;
+    --signal:#F0B323; --signal-ink:#2A1E00;
+    --fresh:#5CC28A; --aging:#E8B13A; --stale:#F07563; --pos:#5CC28A; --neg:#F07563;
+    --head:rgba(16,23,29,.9);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#10171D; --surface:#18222A; --sunk:#141D24; --ink:#E6ECF0; --muted:#93A1AD; --line:#2A3742;
+  --signal:#F0B323; --signal-ink:#2A1E00;
+  --fresh:#5CC28A; --aging:#E8B13A; --stale:#F07563; --pos:#5CC28A; --neg:#F07563;
+  --head:rgba(16,23,29,.9);
+  color-scheme:dark;
+}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 72px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.5 Barlow,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--head);backdrop-filter:blur(10px)}
+.cond{font-family:"Barlow Condensed","Arial Narrow",Barlow,sans-serif}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--signal);outline-offset:2px;border-radius:4px}
+.wrap{max-width:1280px;margin:0 auto;padding:0 20px}
+
+/* header */
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--head);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.top .wrap{display:flex;align-items:center;gap:16px;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:20px;letter-spacing:.01em;white-space:nowrap}
+.brand .tag{width:14px;height:22px;background:var(--signal);border-radius:2px 2px 7px 7px;position:relative}
+.brand .tag::after{content:"";position:absolute;width:4px;height:4px;border-radius:50%;background:var(--bg);top:4px;left:5px}
+.filemeta{color:var(--muted);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+.btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--signal);color:var(--signal-ink);border-color:var(--signal)}
+.btn.primary:hover{filter:brightness(1.05)}
+
+/* empty state */
+.drop{margin:8vh auto 10vh;max-width:760px;text-align:left}
+.drop h1{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:clamp(44px,8vw,84px);line-height:.95;margin:0 0 18px;letter-spacing:-.01em}
+.drop p{color:var(--muted);font-size:18px;max-width:52ch;margin:0 0 32px}
+.zone{display:flex;flex-direction:column;align-items:flex-start;gap:14px;border:2px dashed var(--line);border-radius:14px;padding:36px;background:var(--surface);cursor:pointer;transition:border-color .15s,background .15s}
+.zone.over{border-color:var(--signal);background:color-mix(in srgb,var(--signal) 10%,var(--surface))}
+.zone strong{font-size:20px;font-weight:600}
+.zone span{color:var(--muted)}
+.err{color:var(--stale);margin-top:14px;font-weight:500}
+
+/* summary */
+.summary{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--line);border-radius:12px;background:var(--surface);margin:24px 0 16px;overflow:hidden}
+.summary div{padding:16px 18px;border-left:1px solid var(--line)}
+.summary div:first-child{border-left:0}
+.summary b{display:block;font-family:"Barlow Condensed",sans-serif;font-weight:600;font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums}
+.summary small{color:var(--muted);font-size:13px}
+.summary .pos{color:var(--pos)} .summary .neg{color:var(--neg)}
+
+/* mix */
+.mix{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.panel h2{font-size:15px;font-weight:600;margin:0 0 12px}
+.barrow{display:grid;grid-template-columns:minmax(90px,150px) 1fr 56px;align-items:center;gap:10px;font-size:14px;padding:3px 0;cursor:pointer;border-radius:6px}
+.barrow:hover .lbl{text-decoration:underline}
+.barrow.active .lbl{font-weight:600}
+.barrow .lbl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.barrow .track{height:10px;background:var(--sunk);border-radius:5px;overflow:hidden}
+.barrow .fill{display:block;height:100%;background:var(--ink);border-radius:5px}
+.barrow.active .fill{background:var(--signal)}
+.barrow .n{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* controls */
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px}
+.search{flex:1 1 260px;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:0 12px}
+.search input{border:0;background:transparent;padding:9px 0;width:100%;outline:none}
+select{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 10px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:transparent;padding:8px 14px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.count{color:var(--muted);font-size:14px;margin-left:auto}
+
+/* cards */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;padding-bottom:48px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;cursor:pointer;text-align:left;padding:0;overflow:hidden;transition:border-color .15s}
+.card:hover{border-color:var(--muted)}
+.card .hd{padding:16px 18px 12px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.card .yr{color:var(--muted);font-size:14px;font-weight:500}
+.card .name{font-family:"Barlow Condensed",sans-serif;font-weight:600;font-size:26px;line-height:1.05;margin-top:2px}
+.stocktag{background:var(--signal);color:var(--signal-ink);font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:18px;padding:3px 10px 4px;border-radius:4px;white-space:nowrap;letter-spacing:.02em}
+.vin{padding:0 18px;color:var(--muted);font-size:13px;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+.specs{display:flex;flex-wrap:wrap;gap:6px 16px;padding:12px 18px;font-size:14px}
+.specs span{display:inline-flex;align-items:center;gap:6px}
+.swatch{width:12px;height:12px;border-radius:50%;border:1px solid var(--line);display:inline-block}
+.money{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--sunk)}
+.money div{padding:10px 18px;border-left:1px solid var(--line)}
+.money div:first-child{border-left:0}
+.money small{display:block;color:var(--muted);font-size:12px}
+.money b{font-family:"Barlow Condensed",sans-serif;font-weight:600;font-size:20px;font-variant-numeric:tabular-nums}
+.pos{color:var(--pos)} .neg{color:var(--neg)}
+.route{padding:12px 18px 4px;font-size:14px;display:grid;grid-template-columns:auto 1fr;gap:2px 10px}
+.route dt{color:var(--muted)} .route dd{margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.note{padding:6px 18px 0;font-size:14px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ft{margin-top:auto;padding:12px 18px 14px;display:flex;align-items:center;gap:12px;font-size:13px}
+.age{flex:1;display:flex;align-items:center;gap:8px}
+.age .track{flex:1;height:6px;background:var(--sunk);border-radius:3px;overflow:hidden;max-width:120px}
+.age .fill{display:block;height:100%;border-radius:3px}
+.status{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid currentColor}
+.st-sold{color:var(--muted)} .st-res{color:var(--aging)} .st-avail{color:var(--fresh)} .st-transit{color:var(--ink)}
+a.link{color:inherit;font-weight:600;text-underline-offset:3px}
+
+/* table */
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:48px}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{position:sticky;top:0;background:var(--sunk);font-weight:600;cursor:pointer;user-select:none}
+th:hover{color:var(--muted)}
+td.num,th.num{text-align:right}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:var(--sunk)}
+td.wrapcell{white-space:normal;min-width:260px}
+
+/* dialog */
+dialog{border:0;padding:0;border-radius:14px;background:var(--surface);color:var(--ink);width:min(680px,calc(100vw - 24px));max-height:calc(100vh - 48px);box-shadow:0 24px 60px rgba(0,0,0,.3)}
+dialog::backdrop{background:rgba(10,16,22,.55)}
+dialog .dh{padding:22px 24px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:16px;align-items:flex-start;position:sticky;top:0;background:var(--surface)}
+dialog .dh .name{font-family:"Barlow Condensed",sans-serif;font-weight:600;font-size:34px;line-height:1}
+dialog dl{display:grid;grid-template-columns:minmax(140px,max-content) 1fr;gap:8px 18px;padding:18px 24px 26px;margin:0;font-size:15px}
+dialog dt{color:var(--muted)} dialog dd{margin:0;word-break:break-word}
+dialog .close{border:0;background:var(--sunk);border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:20px;line-height:1;flex:none}
+.empty-filter{padding:48px 0;color:var(--muted);text-align:center}
+.empty-filter button{margin-top:10px}
+
+@media (max-width:900px){
+  .summary{grid-template-columns:repeat(2,1fr)}
+  .summary div{border-left:0;border-top:1px solid var(--line)}
+  .summary div:nth-child(-n+2){border-top:0}
+  .summary div:nth-child(even){border-left:1px solid var(--line)}
+  .summary div:last-child{grid-column:1/-1;border-left:0}
+  .mix{grid-template-columns:1fr}
+}
+@media (max-width:560px){
+  .wrap{padding:0 14px}
+  .filemeta{display:none}
+  .grid{grid-template-columns:1fr}
+  .count{margin-left:0;width:100%}
+  .zone{padding:24px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand cond"><span class="tag" aria-hidden="true"></span>Inventory viewer</div>
+    <div class="filemeta" id="filemeta"></div>
+    <button class="btn primary" id="uploadBtn" hidden>Upload a new file</button>
+  </div>
+</header>
+<input type="file" id="file" accept=".xlsx,.xls,.xlsm,.csv" hidden>
+
+<main class="wrap">
+  <section id="emptyView" class="drop">
+    <h1>Every car on the lot, at a glance.</h1>
+    <p>Upload your vehicle inventory export to see each unit’s cost, price, margin and days in stock. Your file stays in this browser; nothing is uploaded to a server.</p>
+    <div class="zone" id="zone" tabindex="0" role="button" aria-label="Choose an Excel file">
+      <strong>Drop an Excel file here</strong>
+      <span>or click to choose one (.xlsx, .xls or .csv)</span>
+      <span class="btn primary" aria-hidden="true">Choose file</span>
+    </div>
+    <div class="err" id="err" role="alert"></div>
+  </section>
+
+  <section id="dataView" hidden>
+    <div class="summary" id="summary"></div>
+    <div class="mix">
+      <div class="panel"><h2>By make</h2><div id="byMake"></div></div>
+      <div class="panel"><h2>By agent</h2><div id="byAgent"></div></div>
+    </div>
+    <div class="controls">
+      <label class="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Search stock #, VIN, model, dealer, notes…" aria-label="Search"></label>
+      <select id="fStatus" aria-label="Status">
+        <option value="">All statuses</option><option value="avail">Available</option><option value="res">Reserved</option><option value="sold">Sold</option><option value="transit">In transit</option>
+      </select>
+      <select id="sort" aria-label="Sort by">
+        <option value="days-desc">Longest in stock</option>
+        <option value="days-asc">Newest in stock</option>
+        <option value="margin-desc">Highest margin</option>
+        <option value="margin-asc">Lowest margin</option>
+        <option value="sell-desc">Highest sell price</option>
+        <option value="year-desc">Newest model year</option>
+        <option value="miles-asc">Lowest miles</option>
+        <option value="stock-asc">Stock #</option>
+      </select>
+      <div class="seg" role="group" aria-label="View">
+        <button id="vCards" aria-pressed="true">Cards</button><button id="vTable" aria-pressed="false">Table</button>
+      </div>
+      <span class="count" id="count"></span>
+    </div>
+    <div id="results"></div>
+  </section>
+</main>
+
+<dialog id="dlg" aria-labelledby="dlgTitle"><div id="dlgBody"></div></dialog>
+
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const state = { rows:[], headers:[], file:"", sheet:"", make:"", agent:"", view:"cards", tableSort:null };
+  const norm = h => String(h||"").trim().replace(/_/g," ").replace(/\s+/g," ").toUpperCase();
+
+  // ---------- formatting ----------
+  const nf0 = new Intl.NumberFormat("en-CA",{maximumFractionDigits:0});
+  const money = v => v==null||v===""||isNaN(v) ? "—" : (v<0?"−$":"$")+nf0.format(Math.abs(v));
+  const moneyShort = v => { if(v==null||isNaN(v)) return "—"; const a=Math.abs(v), s=v<0?"−$":"$";
+    return a>=1e6 ? s+(a/1e6).toFixed(2)+"M" : a>=1e4 ? s+(a/1e3).toFixed(0)+"k" : s+nf0.format(a); };
+  const num = v => (typeof v==="number" && isFinite(v)) ? v : (v!=null && v!=="" && !isNaN(String(v).replace(/[$,\s]/g,""))) ? Number(String(v).replace(/[$,\s]/g,"")) : null;
+  const esc = s => String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const KEEP = new Set(["GMC","BMW","VW","RAM","QAS","QC","NY","ON","USA","SUV","RV","AMG","LLC","LTD","FX","USD","CAD","VIN","CR"]);
+  const title = s => s ? String(s).split(/(\s+)/).map(w=>KEEP.has(w.toUpperCase().replace(/[.,]$/,""))||/&/.test(w)?w.toUpperCase():w.toLowerCase().replace(/(^|[\-\/&(.])(\p{L})/gu,(m,a,b)=>a+b.toUpperCase())).join("") : "";
+  const fmtCell = (v,k) => (typeof v==="number" && /YEAR/.test(k||"")) ? String(v) : v instanceof Date ? v.toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"}) : (typeof v==="number" ? (Number.isInteger(v)?nf0.format(v):v.toLocaleString("en-CA",{maximumFractionDigits:2})) : (v??""));
+
+  const COLORS = {black:"#111418",white:"#F7F7F5",red:"#B3261E",blue:"#1F4FA3",grey:"#8A9097",gray:"#8A9097",silver:"#C3C8CD",green:"#2E6B3F",brown:"#6B4A2F",beige:"#D8C7A6",gold:"#C8A24A",orange:"#E0732B",yellow:"#E9C431",burgundy:"#6E1E2B",maroon:"#6E1E2B",purple:"#5B3C88",tan:"#C9AE87",bronze:"#8C6239",charcoal:"#3A3F45"};
+  const swatch = c => { if(!c) return ""; const k=Object.keys(COLORS).find(k=>String(c).toLowerCase().includes(k)); return k?COLORS[k]:"transparent"; };
+
+  // ---------- record accessors ----------
+  const g = (r,k) => { const v=r.data[k]; return v===undefined||v===null||v===""?null:v; };
+  function enrich(r){
+    const cost = num(g(r,"BUYING COST")), sell = num(g(r,"SELL PRICE"));
+    r.cost=cost; r.sell=sell; r.margin = (cost!=null && sell!=null) ? sell-cost : null;
+    r.days = num(g(r,"STOCK DAYS")); r.year=num(g(r,"YEAR")); r.miles=num(g(r,"MILES"));
+    r.status = g(r,"SOLD TO") ? "sold" : g(r,"RESERVE TO") ? "res" : truthy(g(r,"IN TRANSIT")) ? "transit" : "avail";
+    r.hay = Object.values(r.data).map(v=>v instanceof Date?v.toISOString():String(v??"")).join(" ").toLowerCase();
+    return r;
+  }
+  const truthy = v => v!=null && !/^(no|n|false|0)$/i.test(String(v).trim());
+  const STATUS = {sold:["Sold","st-sold"],res:["Reserved","st-res"],transit:["In transit","st-transit"],avail:["Available","st-avail"]};
+  const ageColor = d => d==null?"var(--muted)": d<15?"var(--fresh)": d<=30?"var(--aging)":"var(--stale)";
+
+  // ---------- parsing ----------
+  function parse(buf, name){
+    const wb = XLSX.read(buf,{type:"array",cellDates:true});
+    // pick the first sheet that has rows
+    let ws, sheetName;
+    for(const n of wb.SheetNames){ const s=wb.Sheets[n]; if(s["!ref"]){ ws=s; sheetName=n; break; } }
+    if(!ws) throw new Error("This file has no data. Check that the first sheet has a header row and at least one vehicle.");
+    const range = XLSX.utils.decode_range(ws["!ref"]);
+    // header row = first row with 3+ non-empty cells
+    let hr = range.s.r;
+    for(let r=range.s.r;r<=Math.min(range.e.r,range.s.r+15);r++){
+      let n=0; for(let c=range.s.c;c<=range.e.c;c++){ const cell=ws[XLSX.utils.encode_cell({r,c})]; if(cell&&cell.v!==""&&cell.v!=null) n++; }
+      if(n>=3){ hr=r; break; }
+    }
+    const headers=[], cols=[];
+    for(let c=range.s.c;c<=range.e.c;c++){
+      const cell=ws[XLSX.utils.encode_cell({r:hr,c})];
+      if(cell && String(cell.v).trim()){ headers.push(String(cell.v).trim()); cols.push(c); }
+    }
+    const rows=[];
+    for(let r=hr+1;r<=range.e.r;r++){
+      const data={}, links={}, raw={}; let any=false;
+      cols.forEach((c,i)=>{
+        const cell=ws[XLSX.utils.encode_cell({r,c})]; const key=norm(headers[i]);
+        let v = cell ? cell.v : null;
+        if(typeof v==="string"){ v=v.trim(); if(v==="") v=null; }
+        if(v!=null) any=true;
+        data[key]=v; raw[headers[i]]=v;
+        if(cell && cell.l && cell.l.Target) links[key]=cell.l.Target;
+      });
+      if(any) rows.push(enrich({data,links,raw,id:rows.length}));
+    }
+    if(!rows.length) throw new Error("The sheet has a header row but no vehicles under it.");
+    state.rows=rows; state.headers=headers; state.file=name; state.sheet=sheetName;
+    state.make=""; state.agent=""; state.tableSort=null; $("#q").value=""; $("#fStatus").value="";
+  }
+
+  async function handleFile(f){
+    $("#err").textContent="";
+    if(!f) return;
+    if(!/\.(xlsx|xls|xlsm|csv)$/i.test(f.name)){ $("#err").textContent="That file isn’t a spreadsheet. Choose an .xlsx, .xls or .csv file."; return; }
+    try{
+      parse(new Uint8Array(await f.arrayBuffer()), f.name);
+      remember(); show();
+    }catch(e){
+      $("#err").textContent = e.message || "This file couldn’t be read. Re-export it from Excel and try again.";
+      if(!$("#dataView").hidden) alert($("#err").textContent);
+    }
+  }
+
+  // ---------- persistence (this browser only) ----------
+  function remember(){
+    try{
+      localStorage.setItem("inv-viewer-last", JSON.stringify({file:state.file,sheet:state.sheet,headers:state.headers,
+        rows:state.rows.map(r=>({data:r.data,links:r.links,raw:r.raw})), at:Date.now()},
+        (k,v)=> v instanceof Date ? {__d:v.toISOString()} : v));
+    }catch(e){}
+  }
+  function restore(){
+    try{
+      const s=localStorage.getItem("inv-viewer-last"); if(!s) return false;
+      const o=JSON.parse(s,(k,v)=> v&&typeof v==="object"&&v.__d ? new Date(v.__d) : v);
+      if(!o||!o.rows||!o.rows.length) return false;
+      state.file=o.file; state.sheet=o.sheet; state.headers=o.headers;
+      state.rows=o.rows.map((r,i)=>enrich({...r,id:i}));
+      return true;
+    }catch(e){ return false; }
+  }
+
+  // ---------- filtering ----------
+  function filtered(){
+    const q=$("#q").value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const st=$("#fStatus").value;
+    let out=state.rows.filter(r=>
+      (!state.make || g(r,"MAKE")===state.make) &&
+      (!state.agent || g(r,"AGENT")===state.agent) &&
+      (!st || r.status===st) &&
+      q.every(t=>r.hay.includes(t)));
+    const [key,dir]=$("#sort").value.split("-"); const m=dir==="asc"?1:-1;
+    const val={days:r=>r.days,margin:r=>r.margin,sell:r=>r.sell,year:r=>r.year,miles:r=>r.miles,stock:r=>g(r,"STOCK")}[key];
+    out.sort((a,b)=>{ const x=val(a),y=val(b); if(x==null&&y==null) return 0; if(x==null) return 1; if(y==null) return -1;
+      return (typeof x==="string"? x.localeCompare(y,undefined,{numeric:true}) : x-y)*m; });
+    return out;
+  }
+
+  // ---------- rendering ----------
+  function show(){
+    $("#emptyView").hidden=true; $("#dataView").hidden=false; $("#uploadBtn").hidden=false;
+    $("#filemeta").textContent = state.file + (state.sheet?` (${state.sheet})`:"");
+    document.title = state.file + " · Inventory viewer";
+    render();
+  }
+
+  function render(){
+    const rows=filtered();
+    renderSummary(rows); renderMix(); 
+    $("#count").textContent = rows.length===state.rows.length ? `${rows.length} vehicles` : `${rows.length} of ${state.rows.length} vehicles`;
+    if(!rows.length){
+      $("#results").innerHTML=`<div class="empty-filter">No vehicles match these filters.<br><button class="btn" id="clearF">Clear filters</button></div>`;
+      $("#clearF").onclick=()=>{ state.make=state.agent=""; $("#q").value=""; $("#fStatus").value=""; render(); };
+      return;
+    }
+    state.view==="cards" ? renderCards(rows) : renderTable(rows);
+  }
+
+  function renderSummary(rows){
+    const sum=f=>rows.reduce((a,r)=>a+(f(r)??0),0);
+    const cost=sum(r=>r.cost), sell=sum(r=>r.sell), withM=rows.filter(r=>r.margin!=null);
+    const margin=withM.reduce((a,r)=>a+r.margin,0), mCost=withM.reduce((a,r)=>a+r.cost,0);
+    const dRows=rows.filter(r=>r.days!=null), avgD=dRows.length?dRows.reduce((a,r)=>a+r.days,0)/dRows.length:null;
+    const pct = mCost? (margin/mCost*100).toFixed(1)+"% on cost" : "";
+    $("#summary").innerHTML=`
+      <div><b>${rows.length}</b><small>Vehicles</small></div>
+      <div><b>${moneyShort(cost)}</b><small>Total buying cost</small></div>
+      <div><b>${moneyShort(sell)}</b><small>Total sell price</small></div>
+      <div><b class="${margin>=0?"pos":"neg"}">${withM.length?moneyShort(margin):"—"}</b><small>Gross margin ${pct?`(${pct})`:""}</small></div>
+      <div><b style="color:${ageColor(avgD)}">${avgD==null?"—":avgD.toFixed(1)}</b><small>Average days in stock</small></div>`;
+  }
+
+  function renderMix(){
+    // counts reflect all filters except the dimension itself, so you can switch within it
+    const base = which => state.rows.filter(r => (which==="MAKE"||!state.make||g(r,"MAKE")===state.make) && (which==="AGENT"||!state.agent||g(r,"AGENT")===state.agent));
+    const draw=(el,key,cur,setter)=>{
+      const m=new Map(); base(key).forEach(r=>{ const k=g(r,key)??"Not set"; m.set(k,(m.get(k)||0)+1); });
+      const arr=[...m].sort((a,b)=>b[1]-a[1]); const max=Math.max(1,...arr.map(a=>a[1]));
+      el.innerHTML = arr.length ? arr.map(([k,n])=>`<div class="barrow${cur===k?" active":""}" role="button" tabindex="0" data-k="${esc(k)}" aria-pressed="${cur===k}">
+        <span class="lbl" title="${esc(title(k))}">${esc(title(k))}</span><span class="track"><span class="fill" style="width:${n/max*100}%"></span></span><span class="n">${n}</span></div>`).join("")
+        : `<span style="color:var(--muted)">This column isn’t in the file.</span>`;
+      el.querySelectorAll(".barrow").forEach(b=>{ const go=()=>{ setter(cur===b.dataset.k?"":b.dataset.k); render(); };
+        b.onclick=go; b.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); } }; });
+    };
+    draw($("#byMake"),"MAKE",state.make,v=>state.make=v);
+    draw($("#byAgent"),"AGENT",state.agent,v=>state.agent=v);
+  }
+
+  function renderCards(rows){
+    $("#results").innerHTML=`<div class="grid">${rows.map(r=>{
+      const [sl,sc]=STATUS[r.status]; const make=title(g(r,"MAKE")), model=g(r,"MODEL")??"";
+      const color=g(r,"COLOR"), carfax=r.links["CARFAX"];
+      const days=r.days, pctAge=Math.min(100,(days??0)/45*100);
+      const party = r.status==="sold"?["Sold to",g(r,"SOLD TO")]: r.status==="res"?["Reserved to",g(r,"RESERVE TO")]:null;
+      return `<button class="card" data-id="${r.id}" aria-label="${esc(`${r.year??""} ${make} ${model}, stock ${g(r,"STOCK")??""}`)}">
+        <div class="hd"><div><div class="yr">${esc(r.year??"")}${g(r,"MARKETPLACE")?` · ${esc(g(r,"MARKETPLACE"))}`:""}</div>
+          <div class="name">${esc(make)} ${esc(model)}</div></div>
+          ${g(r,"STOCK")?`<span class="stocktag">${esc(g(r,"STOCK"))}</span>`:""}</div>
+        ${g(r,"VIN")?`<div class="vin">${esc(g(r,"VIN"))}</div>`:""}
+        <div class="specs">
+          ${r.miles!=null?`<span>${nf0.format(r.miles)} mi</span>`:""}
+          ${color?`<span><i class="swatch" style="background:${swatch(color)}"></i>${esc(title(color))}</span>`:`<span style="color:var(--muted)">Color not set</span>`}
+          ${g(r,"AGENT")?`<span>${esc(title(g(r,"AGENT")))}</span>`:""}
+        </div>
+        <div class="money">
+          <div><small>Cost</small><b>${money(r.cost)}</b></div>
+          <div><small>Sell</small><b>${money(r.sell)}</b></div>
+          <div><small>Margin</small><b class="${r.margin==null?"":r.margin>=0?"pos":"neg"}">${r.margin==null?"—":(r.margin>0?"+":"")+money(r.margin)}</b></div>
+        </div>
+        <dl class="route">
+          ${g(r,"BUY FROM")?`<dt>Bought from</dt><dd>${esc(title(g(r,"BUY FROM")))}</dd>`:""}
+          ${party&&party[1]?`<dt>${party[0]}</dt><dd>${esc(title(party[1]))}</dd>`:""}
+          ${g(r,"LAST LOCATION")?`<dt>Location</dt><dd>${esc(g(r,"LAST LOCATION"))}</dd>`:""}
+        </dl>
+        ${g(r,"NOTES")?`<div class="note">${esc(g(r,"NOTES"))}</div>`:""}
+        <div class="ft">
+          <span class="age">${days!=null?`<span class="track"><span class="fill" style="width:${pctAge}%;background:${ageColor(days)}"></span></span><span>${days} ${days===1?"day":"days"} in stock</span>`:""}</span>
+          ${carfax?`<a class="link" href="${esc(carfax)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Carfax</a>`:""}
+          <span class="status ${sc}">${sl}</span>
+        </div>
+      </button>`;}).join("")}</div>`;
+    $("#results").querySelectorAll(".card").forEach(c=>c.onclick=()=>openDetail(+c.dataset.id));
+  }
+
+  function renderTable(rows){
+    const hs=state.headers;
+    const isNum = h => state.rows.some(r=>typeof r.raw[h]==="number");
+    const derived = ["Margin"];
+    if(state.tableSort){ const {h,dir}=state.tableSort;
+      const v = r => h==="Margin" ? r.margin : r.raw[h];
+      rows=[...rows].sort((a,b)=>{ const x=v(a),y=v(b); if(x==null&&y==null)return 0; if(x==null)return 1; if(y==null)return -1;
+        return (typeof x==="number"&&typeof y==="number"? x-y : String(x).localeCompare(String(y),undefined,{numeric:true}))*dir; }); }
+    const arrow = h => state.tableSort&&state.tableSort.h===h ? (state.tableSort.dir>0?" ▲":" ▼") : "";
+    const hasMargin = rows.some(r=>r.margin!=null);
+    const cols = hasMargin ? [...hs.slice(0, hs.findIndex(h=>norm(h)==="SELL PRICE")+1 || hs.length), "Margin", ...hs.slice(hs.findIndex(h=>norm(h)==="SELL PRICE")+1 || hs.length)] : hs;
+    $("#results").innerHTML=`<div class="tablewrap"><table><thead><tr>${cols.map(h=>`<th scope="col" class="${h==="Margin"||isNum(h)?"num":""}" data-h="${esc(h)}" tabindex="0">${esc(h==="Margin"?"Margin":title(norm(h)).replace(/\bUsd\b/,"USD").replace(/\bCad\b/,"CAD").replace(/\bVin\b/,"VIN").replace(/\bFx\b/,"FX").replace(/\bCr\b/,"CR"))}${arrow(h)}</th>`).join("")}</tr></thead>
+      <tbody>${rows.map(r=>`<tr data-id="${r.id}">${cols.map(h=>{
+        if(h==="Margin") return `<td class="num ${r.margin==null?"":r.margin>=0?"pos":"neg"}">${r.margin==null?"":money(r.margin)}</td>`;
+        const k=norm(h), v=r.raw[h], link=r.links[k];
+        const isMoney=/COST|PRICE/.test(k) && typeof v==="number";
+        let txt = isMoney? money(v) : fmtCell(v,k);
+        if(k==="STOCK DAYS" && typeof v==="number") txt=`<span style="color:${ageColor(v)};font-weight:600">${v}</span>`; else txt=esc(txt);
+        if(link) txt=`<a class="link" href="${esc(link)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${txt||"Open"}</a>`;
+        return `<td class="${typeof v==="number"?"num":""} ${k==="NOTES"?"wrapcell":""}">${txt}</td>`;}).join("")}</tr>`).join("")}</tbody></table></div>`;
+    $("#results").querySelectorAll("th").forEach(th=>{ const go=()=>{ const h=th.dataset.h;
+      state.tableSort = state.tableSort&&state.tableSort.h===h ? {h,dir:-state.tableSort.dir} : {h,dir:1}; render(); };
+      th.onclick=go; th.onkeydown=e=>{ if(e.key==="Enter"){ go(); } }; });
+    $("#results").querySelectorAll("tbody tr").forEach(tr=>tr.onclick=()=>openDetail(+tr.dataset.id));
+  }
+
+  function openDetail(id){
+    const r=state.rows[id]; const [sl,sc]=STATUS[r.status];
+    const items = state.headers.filter(h=>r.raw[h]!=null).map(h=>{
+      const k=norm(h), v=r.raw[h], link=r.links[k];
+      let txt = /COST|PRICE/.test(k)&&typeof v==="number" ? money(v) : fmtCell(v,k);
+      txt = link ? `<a class="link" href="${esc(link)}" target="_blank" rel="noopener">${esc(txt||"Open")}</a>` : esc(txt);
+      return `<dt>${esc(title(norm(h)).replace(/\bUsd\b/,"USD").replace(/\bCad\b/,"CAD").replace(/\bVin\b/,"VIN").replace(/\bFx\b/,"FX").replace(/\bCr\b/,"CR"))}</dt><dd>${txt}</dd>`; });
+    if(r.margin!=null) items.push(`<dt>Margin</dt><dd class="${r.margin>=0?"pos":"neg"}"><b>${money(r.margin)}</b>${r.cost?` (${(r.margin/r.cost*100).toFixed(1)}% on cost)`:""}</dd>`);
+    const empty = state.headers.filter(h=>r.raw[h]==null);
+    $("#dlgBody").innerHTML=`<div class="dh"><div><div style="color:var(--muted);font-weight:500">${esc(r.year??"")} · <span class="status ${sc}">${sl}</span></div>
+      <div class="name" id="dlgTitle">${esc(title(g(r,"MAKE")))} ${esc(g(r,"MODEL")??"")}</div></div>
+      <div style="display:flex;gap:10px;align-items:center">${g(r,"STOCK")?`<span class="stocktag">${esc(g(r,"STOCK"))}</span>`:""}<button class="close" aria-label="Close">×</button></div></div>
+      <dl>${items.join("")}${empty.length?`<dt>Empty fields</dt><dd style="color:var(--muted)">${esc(empty.map(title).join(", "))}</dd>`:""}</dl>`;
+    $("#dlgBody .close").onclick=()=>$("#dlg").close();
+    $("#dlg").showModal();
+  }
+  $("#dlg").addEventListener("click",e=>{ if(e.target===$("#dlg")) $("#dlg").close(); });
+
+  // ---------- wiring ----------
+  const pick=()=>$("#file").click();
+  $("#zone").onclick=pick; $("#zone").onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); pick(); } };
+  $("#uploadBtn").onclick=pick;
+  $("#file").onchange=e=>{ handleFile(e.target.files[0]); e.target.value=""; };
+  ["dragenter","dragover"].forEach(t=>document.addEventListener(t,e=>{ e.preventDefault(); $("#zone").classList.add("over"); }));
+  ["dragleave","drop"].forEach(t=>document.addEventListener(t,e=>{ e.preventDefault(); if(t==="drop"||!e.relatedTarget) $("#zone").classList.remove("over"); }));
+  document.addEventListener("drop",e=>{ const f=e.dataTransfer&&e.dataTransfer.files[0]; if(f) handleFile(f); });
+  $("#q").oninput=render; $("#fStatus").onchange=render; $("#sort").onchange=render;
+  const setView=v=>{ state.view=v; $("#vCards").setAttribute("aria-pressed",v==="cards"); $("#vTable").setAttribute("aria-pressed",v==="table");
+    try{ localStorage.setItem("inv-viewer-view",v); }catch(e){} render(); };
+  $("#vCards").onclick=()=>setView("cards"); $("#vTable").onclick=()=>setView("table");
+  try{ const v=localStorage.getItem("inv-viewer-view"); if(v==="table"||v==="cards") state.view=v; }catch(e){}
+  $("#vCards").setAttribute("aria-pressed",state.view==="cards"); $("#vTable").setAttribute("aria-pressed",state.view==="table");
+
+  if(typeof XLSX==="undefined"){ $("#err").textContent="The spreadsheet reader didn’t load. Check your connection and reload the page."; }
+  if(restore()) show();
+})();
+</script>
+</body>
+</html>
