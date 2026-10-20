@@ -38,6 +38,7 @@
 }
 html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 72px)}
 *,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.5 Barlow,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--head);backdrop-filter:blur(10px)}
 .cond{font-family:"Barlow Condensed","Arial Narrow",Barlow,sans-serif}
@@ -68,7 +69,7 @@ header.top .wrap{display:flex;align-items:center;gap:16px;height:60px}
 .err{color:var(--stale);margin-top:14px;font-weight:500}
 
 /* summary */
-.summary{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--line);border-radius:12px;background:var(--surface);margin:24px 0 16px;overflow:hidden}
+.summary{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--line);border-radius:12px;background:var(--surface);margin:20px 0 16px;overflow:hidden}
 .summary div{padding:16px 18px;border-left:1px solid var(--line)}
 .summary div:first-child{border-left:0}
 .summary b{display:block;font-family:"Barlow Condensed",sans-serif;font-weight:600;font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums}
@@ -93,9 +94,6 @@ header.top .wrap{display:flex;align-items:center;gap:16px;height:60px}
 .search{flex:1 1 260px;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:0 12px}
 .search input{border:0;background:transparent;padding:9px 0;width:100%;outline:none}
 select{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 10px}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
-.seg button{border:0;background:transparent;padding:8px 14px;cursor:pointer}
-.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
 .count{color:var(--muted);font-size:14px;margin-left:auto}
 
 /* cards */
@@ -127,16 +125,77 @@ select{background:var(--surface);border:1px solid var(--line);border-radius:8px;
 .st-sold{color:var(--muted)} .st-res{color:var(--aging)} .st-avail{color:var(--fresh)} .st-transit{color:var(--ink)}
 a.link{color:inherit;font-weight:600;text-underline-offset:3px}
 
+/* tabs */
+.tabs{display:flex;gap:32px;border-bottom:1px solid var(--line);margin-top:18px}
+.tabs button{border:0;background:none;padding:8px 2px 12px;font-family:"Barlow Condensed","Arial Narrow",sans-serif;font-weight:600;font-size:24px;line-height:1;color:var(--muted);cursor:pointer;position:relative}
+.tabs button:hover{color:var(--ink)}
+.tabs button[aria-selected="true"]{color:var(--ink)}
+.tabs button[aria-selected="true"]::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:4px;background:var(--signal);border-radius:2px 2px 0 0}
+
 /* table */
-.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:48px}
-table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
-th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
-th{position:sticky;top:0;background:var(--sunk);font-weight:600;cursor:pointer;user-select:none}
-th:hover{color:var(--muted)}
+.ttools{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;margin-bottom:12px;font-size:14px}
+.ttools > label{display:inline-flex;align-items:center;gap:8px}
+.ttools select{padding:7px 10px}
+.hint{color:var(--muted);font-size:13px;margin-left:auto}
+.chk{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.chk input,td.sel input,th.sel input,.colpanel input{accent-color:var(--ink);width:16px;height:16px;cursor:pointer;margin:0}
+.muted{color:var(--muted)}
+.colmenu{position:relative}
+.colmenu summary{list-style:none;padding:7px 14px}
+.colmenu summary::-webkit-details-marker{display:none}
+.colpanel{position:absolute;z-index:6;top:calc(100% + 6px);left:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px;box-shadow:0 14px 34px rgba(0,0,0,.2);width:270px;max-height:380px;overflow:auto;display:grid;gap:2px}
+.colpanel label{display:flex;align-items:center;gap:10px;padding:4px 0;cursor:pointer}
+.colpanel .empty-tag{margin-left:auto;color:var(--muted);font-size:12px}
+.colpanel-actions{display:flex;justify-content:space-between;padding-bottom:8px;margin-bottom:4px;border-bottom:1px solid var(--line)}
+.linkbtn{border:0;background:none;padding:0;cursor:pointer;font-weight:600;text-decoration:underline;text-underline-offset:3px}
+
+.tablewrap{overflow:auto;max-height:max(420px,calc(100vh - 210px));background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:16px;overscroll-behavior:contain}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;background:var(--surface)}
+.compact th,.compact td{padding:5px 10px;font-size:13px}
+thead th{position:sticky;background:var(--sunk);z-index:2}
+.hrow th{top:0;height:40px;font-weight:600;cursor:pointer;user-select:none}
+.hrow th:hover{color:var(--muted)}
+.compact .hrow th{height:32px}
+.frow th{top:40px;padding-top:6px;padding-bottom:7px}
+.compact .frow th{top:32px;padding-top:4px;padding-bottom:5px}
+.frow input{width:100%;min-width:72px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:4px 8px;font-size:13px;font-weight:400}
+.frow input:not(:placeholder-shown){border-color:var(--signal);box-shadow:0 0 0 1px var(--signal)}
+.frow .num input{text-align:right}
+.arr{display:inline-block;width:12px;margin-left:5px;font-size:10px}
+th[aria-sort="ascending"] .arr::after{content:"▲"}
+th[aria-sort="descending"] .arr::after{content:"▼"}
+th[aria-sort="ascending"],th[aria-sort="descending"]{color:var(--ink);box-shadow:inset 0 -3px 0 var(--signal)}
 td.num,th.num{text-align:right}
-tbody tr{cursor:pointer}
-tbody tr:hover td{background:var(--sunk)}
-td.wrapcell{white-space:normal;min-width:260px}
+.stick0{position:sticky;left:0;z-index:1;width:44px;min-width:44px;max-width:44px;text-align:center;padding-left:0;padding-right:0}
+.stick1{position:sticky;left:44px;z-index:1;box-shadow:inset -1px 0 0 var(--line)}
+thead .stick0,thead .stick1,tfoot .stick0,tfoot .stick1{z-index:3}
+tbody tr[data-id]{cursor:pointer}
+tbody tr[data-id]:hover td{background:var(--sunk)}
+tbody tr.picked td{background:color-mix(in srgb,var(--signal) 16%,var(--surface))}
+tbody tr.picked:hover td{background:color-mix(in srgb,var(--signal) 24%,var(--surface))}
+td.stockcell{font-weight:600}
+td.notes{white-space:normal;min-width:280px;max-width:440px}
+td.notes .clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.compact td.notes .clamp{-webkit-line-clamp:1}
+.mini{display:inline-block;width:38px;height:5px;background:var(--sunk);border-radius:3px;overflow:hidden;vertical-align:middle;margin-right:8px}
+.mini i{display:block;height:100%;border-radius:3px}
+tr.grp td{background:var(--sunk);padding:0;cursor:pointer}
+tr.grp:hover td{background:color-mix(in srgb,var(--ink) 6%,var(--sunk))}
+.gin{position:sticky;left:0;display:inline-flex;gap:20px;align-items:baseline;padding:10px 14px;white-space:nowrap}
+.gin .gname{font-family:"Barlow Condensed","Arial Narrow",sans-serif;font-weight:600;font-size:18px}
+.chev{display:inline-block;width:12px;transition:transform .15s;color:var(--muted)}
+tr.grp[aria-expanded="true"] .chev{transform:rotate(90deg)}
+.gstat{color:var(--muted);font-size:13px}
+.gstat b{color:var(--ink);font-weight:600}
+tfoot td{position:sticky;bottom:0;background:var(--sunk);font-weight:600;border-top:1px solid var(--line);border-bottom:0;z-index:2}
+tr.none td{padding:48px 16px;text-align:center;color:var(--muted);white-space:normal}
+.selbar{position:sticky;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);z-index:4;display:flex;flex-wrap:wrap;align-items:center;gap:8px 22px;background:var(--ink);color:var(--bg);padding:12px 16px;border-radius:12px;margin-bottom:24px;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.selbar b{font-weight:600}
+.selbar .grow{flex:1}
+.selbar .btn{background:transparent;color:var(--bg);border-color:color-mix(in srgb,var(--bg) 45%,transparent);padding:6px 12px}
+.selbar .chk input{accent-color:var(--signal)}
+.tspacer{height:32px}
 
 /* dialog */
 dialog{border:0;padding:0;border-radius:14px;background:var(--surface);color:var(--ink);width:min(680px,calc(100vw - 24px));max-height:calc(100vh - 48px);box-shadow:0 24px 60px rgba(0,0,0,.3)}
@@ -158,6 +217,9 @@ dialog .close{border:0;background:var(--sunk);border-radius:8px;width:36px;heigh
   .mix{grid-template-columns:1fr}
 }
 @media (max-width:560px){
+  .hint{display:none}
+  .selbar{gap:4px 14px;padding:10px 12px;font-size:13px}
+  .tabs{gap:24px}
   .wrap{padding:0 14px}
   .filemeta{display:none}
   .grid{grid-template-columns:1fr}
@@ -190,8 +252,12 @@ dialog .close{border:0;background:var(--sunk);border-radius:8px;width:36px;heigh
   </section>
 
   <section id="dataView" hidden>
+    <nav class="tabs" role="tablist" aria-label="View">
+      <button role="tab" id="tabCards" aria-controls="results" aria-selected="true">Cards</button>
+      <button role="tab" id="tabTable" aria-controls="results" aria-selected="false" tabindex="-1">Table</button>
+    </nav>
     <div class="summary" id="summary"></div>
-    <div class="mix">
+    <div class="mix" id="mix">
       <div class="panel"><h2>By make</h2><div id="byMake"></div></div>
       <div class="panel"><h2>By agent</h2><div id="byAgent"></div></div>
     </div>
@@ -211,12 +277,9 @@ dialog .close{border:0;background:var(--sunk);border-radius:8px;width:36px;heigh
         <option value="miles-asc">Lowest miles</option>
         <option value="stock-asc">Stock #</option>
       </select>
-      <div class="seg" role="group" aria-label="View">
-        <button id="vCards" aria-pressed="true">Cards</button><button id="vTable" aria-pressed="false">Table</button>
-      </div>
       <span class="count" id="count"></span>
     </div>
-    <div id="results"></div>
+    <div id="results" role="tabpanel" aria-labelledby="tabCards"></div>
   </section>
 </main>
 
@@ -225,7 +288,8 @@ dialog .close{border:0;background:var(--sunk);border-radius:8px;width:36px;heigh
 <script>
 (function(){
   const $ = s => document.querySelector(s);
-  const state = { rows:[], headers:[], file:"", sheet:"", make:"", agent:"", view:"cards", tableSort:null };
+  const state = { rows:[], headers:[], file:"", sheet:"", make:"", agent:"", view:"cards", tableSort:null,
+    colFilters:{}, selected:new Set(), collapsed:new Set(), hidden:new Set(), emptyCols:[], virt:new Set(), vis:[], groupBy:"", onlySel:false, compact:false, colMenuOpen:false };
   const norm = h => String(h||"").trim().replace(/_/g," ").replace(/\s+/g," ").toUpperCase();
 
   // ---------- formatting ----------
@@ -236,7 +300,8 @@ dialog .close{border:0;background:var(--sunk);border-radius:8px;width:36px;heigh
   const num = v => (typeof v==="number" && isFinite(v)) ? v : (v!=null && v!=="" && !isNaN(String(v).replace(/[$,\s]/g,""))) ? Number(String(v).replace(/[$,\s]/g,"")) : null;
   const esc = s => String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const KEEP = new Set(["GMC","BMW","VW","RAM","QAS","QC","NY","ON","USA","SUV","RV","AMG","LLC","LTD","FX","USD","CAD","VIN","CR"]);
-  const title = s => s ? String(s).split(/(\s+)/).map(w=>KEEP.has(w.toUpperCase().replace(/[.,]$/,""))||/&/.test(w)?w.toUpperCase():w.toLowerCase().replace(/(^|[\-\/&(.])(\p{L})/gu,(m,a,b)=>a+b.toUpperCase())).join("") : "";
+  const mostlyUpper = t => { const L=(t.match(/\p{L}/gu)||[]).length, l=(t.match(/\p{Ll}/gu)||[]).length; return L>0 && l/L<0.25; };
+  const title = s => s && !mostlyUpper(String(s)) ? String(s) : s ? String(s).split(/(\s+)/).map(w=>KEEP.has(w.toUpperCase().replace(/[.,]$/,""))||/&/.test(w)?w.toUpperCase():w.toLowerCase().replace(/(^|[\-\/&(.])(\p{L})/gu,(m,a,b)=>a+b.toUpperCase())).join("") : "";
   const fmtCell = (v,k) => (typeof v==="number" && /YEAR/.test(k||"")) ? String(v) : v instanceof Date ? v.toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"}) : (typeof v==="number" ? (Number.isInteger(v)?nf0.format(v):v.toLocaleString("en-CA",{maximumFractionDigits:2})) : (v??""));
 
   const COLORS = {black:"#111418",white:"#F7F7F5",red:"#B3261E",blue:"#1F4FA3",grey:"#8A9097",gray:"#8A9097",silver:"#C3C8CD",green:"#2E6B3F",brown:"#6B4A2F",beige:"#D8C7A6",gold:"#C8A24A",orange:"#E0732B",yellow:"#E9C431",burgundy:"#6E1E2B",maroon:"#6E1E2B",purple:"#5B3C88",tan:"#C9AE87",bronze:"#8C6239",charcoal:"#3A3F45"};
@@ -338,27 +403,43 @@ dialog .close{border:0;background:var(--sunk);border-radius:8px;width:36px;heigh
     const val={days:r=>r.days,margin:r=>r.margin,sell:r=>r.sell,year:r=>r.year,miles:r=>r.miles,stock:r=>g(r,"STOCK")}[key];
     out.sort((a,b)=>{ const x=val(a),y=val(b); if(x==null&&y==null) return 0; if(x==null) return 1; if(y==null) return -1;
       return (typeof x==="string"? x.localeCompare(y,undefined,{numeric:true}) : x-y)*m; });
+    if(state.view==="table"){
+      const cf=Object.entries(state.colFilters).filter(([,f])=>f&&f.trim());
+      if(cf.length) out=out.filter(r=>cf.every(([h,f])=>matches(colVal(r,h),f,isNumCol(h),h)));
+      if(state.onlySel) out=out.filter(r=>state.selected.has(r.id));
+      if(state.tableSort){ const {h,dir}=state.tableSort;
+        out.sort((a,b)=>cmp(colVal(a,h),colVal(b,h))*dir); }
+    }
     return out;
   }
+  const cmp=(x,y)=>{ if(x==null&&y==null) return 0; if(x==null) return 1; if(y==null) return -1;
+    if(x instanceof Date&&y instanceof Date) return x-y;
+    return typeof x==="number"&&typeof y==="number" ? x-y : String(x).localeCompare(String(y),undefined,{numeric:true}); };
 
   // ---------- rendering ----------
   function show(){
     $("#emptyView").hidden=true; $("#dataView").hidden=false; $("#uploadBtn").hidden=false;
     $("#filemeta").textContent = state.file + (state.sheet?` (${state.sheet})`:"");
     document.title = state.file + " · Inventory viewer";
+    state.colFilters={}; state.selected=new Set(); state.collapsed=new Set(); state.onlySel=false; state.tableSort=null;
+    initTable(); syncTabs();
     render();
   }
 
   function render(){
     const rows=filtered();
-    renderSummary(rows); renderMix(); 
-    $("#count").textContent = rows.length===state.rows.length ? `${rows.length} vehicles` : `${rows.length} of ${state.rows.length} vehicles`;
-    if(!rows.length){
+    renderSummary(rows); renderMix(); setCount(rows);
+    $("#mix").hidden = state.view==="table";
+    if(!rows.length && state.view==="cards"){
       $("#results").innerHTML=`<div class="empty-filter">No vehicles match these filters.<br><button class="btn" id="clearF">Clear filters</button></div>`;
       $("#clearF").onclick=()=>{ state.make=state.agent=""; $("#q").value=""; $("#fStatus").value=""; render(); };
       return;
     }
     state.view==="cards" ? renderCards(rows) : renderTable(rows);
+  }
+
+  function setCount(rows){
+    $("#count").textContent = rows.length===state.rows.length ? `${rows.length} vehicles` : `${rows.length} of ${state.rows.length} vehicles`;
   }
 
   function renderSummary(rows){
@@ -427,30 +508,206 @@ dialog .close{border:0;background:var(--sunk);border-radius:8px;width:36px;heigh
     $("#results").querySelectorAll(".card").forEach(c=>c.onclick=()=>openDetail(+c.dataset.id));
   }
 
+  // ---------- table view ----------
+  function tableCols(){
+    const hs=[...state.headers]; state.virt=new Set();
+    const add=(name,afterKey)=>{ if(hs.some(h=>norm(h)===name.toUpperCase())) return;
+      const i=hs.findIndex(h=>norm(h)===afterKey); hs.splice(i>=0?i+1:hs.length,0,name); state.virt.add(name); };
+    add("Status","STOCK");
+    if(state.rows.some(r=>r.margin!=null)) add("Margin","SELL PRICE");
+    return hs;
+  }
+  const colVal=(r,h)=> state.virt&&state.virt.has(h) ? (h==="Margin"?r.margin:STATUS[r.status][0]) : r.raw[h];
+  const numCache=new Map();
+  const isNumCol=h=>{ if(h==="Margin"&&state.virt&&state.virt.has(h)) return true;
+    if(!numCache.has(h)) numCache.set(h,state.rows.some(r=>typeof r.raw[h]==="number")); return numCache.get(h); };
+  const isMoneyCol=h=> (h==="Margin"&&state.virt.has(h)) || (/COST|PRICE/.test(norm(h)) && isNumCol(h));
+  const label=h=> state.virt&&state.virt.has(h) ? h : title(norm(h));
+  const toNum=t=>Number(String(t).replace(/[$,\s]/g,""));
+
+  function matches(v,f,num,h){
+    f=f.trim(); if(!f) return true;
+    if(num){
+      let m=f.match(/^\$?(-?[\d.,]+)\s*(?:-|–|to)\s*\$?(-?[\d.,]+)$/i);
+      if(m) return typeof v==="number" && v>=toNum(m[1]) && v<=toNum(m[2]);
+      m=f.match(/^(>=|<=|>|<|=)\s*\$?(-?[\d.,]+)$/);
+      if(m){ if(typeof v!=="number") return false; const x=toNum(m[2]);
+        return {">":v>x,"<":v<x,">=":v>=x,"<=":v<=x,"=":v===x}[m[1]]; }
+    }
+    if(/^(empty|blank)$/i.test(f)) return v==null||v==="";
+    const t=f.toLowerCase();
+    return String(fmtCell(v,norm(h))).toLowerCase().includes(t) || String(v??"").toLowerCase().includes(t);
+  }
+
+  function initTable(){
+    numCache.clear();
+    const cols=tableCols();
+    state.emptyCols=cols.filter(h=>state.rows.every(r=>{ const v=colVal(r,h); return v==null||v===""; }));
+    let saved=null; try{ saved=JSON.parse(localStorage.getItem("inv-viewer-hidden")); }catch(e){}
+    state.hidden=new Set(Array.isArray(saved) ? saved.filter(h=>cols.includes(h)) : state.emptyCols);
+    try{ state.compact=localStorage.getItem("inv-viewer-compact")==="1"; }catch(e){}
+  }
+  const saveHidden=()=>{ try{ localStorage.setItem("inv-viewer-hidden",JSON.stringify([...state.hidden])); }catch(e){} };
+  const anyColFilter=()=>Object.values(state.colFilters).some(f=>f&&f.trim());
+
   function renderTable(rows){
-    const hs=state.headers;
-    const isNum = h => state.rows.some(r=>typeof r.raw[h]==="number");
-    const derived = ["Margin"];
-    if(state.tableSort){ const {h,dir}=state.tableSort;
-      const v = r => h==="Margin" ? r.margin : r.raw[h];
-      rows=[...rows].sort((a,b)=>{ const x=v(a),y=v(b); if(x==null&&y==null)return 0; if(x==null)return 1; if(y==null)return -1;
-        return (typeof x==="number"&&typeof y==="number"? x-y : String(x).localeCompare(String(y),undefined,{numeric:true}))*dir; }); }
-    const arrow = h => state.tableSort&&state.tableSort.h===h ? (state.tableSort.dir>0?" ▲":" ▼") : "";
-    const hasMargin = rows.some(r=>r.margin!=null);
-    const cols = hasMargin ? [...hs.slice(0, hs.findIndex(h=>norm(h)==="SELL PRICE")+1 || hs.length), "Margin", ...hs.slice(hs.findIndex(h=>norm(h)==="SELL PRICE")+1 || hs.length)] : hs;
-    $("#results").innerHTML=`<div class="tablewrap"><table><thead><tr>${cols.map(h=>`<th scope="col" class="${h==="Margin"||isNum(h)?"num":""}" data-h="${esc(h)}" tabindex="0">${esc(h==="Margin"?"Margin":title(norm(h)).replace(/\bUsd\b/,"USD").replace(/\bCad\b/,"CAD").replace(/\bVin\b/,"VIN").replace(/\bFx\b/,"FX").replace(/\bCr\b/,"CR"))}${arrow(h)}</th>`).join("")}</tr></thead>
-      <tbody>${rows.map(r=>`<tr data-id="${r.id}">${cols.map(h=>{
-        if(h==="Margin") return `<td class="num ${r.margin==null?"":r.margin>=0?"pos":"neg"}">${r.margin==null?"":money(r.margin)}</td>`;
-        const k=norm(h), v=r.raw[h], link=r.links[k];
-        const isMoney=/COST|PRICE/.test(k) && typeof v==="number";
-        let txt = isMoney? money(v) : fmtCell(v,k);
-        if(k==="STOCK DAYS" && typeof v==="number") txt=`<span style="color:${ageColor(v)};font-weight:600">${v}</span>`; else txt=esc(txt);
-        if(link) txt=`<a class="link" href="${esc(link)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${txt||"Open"}</a>`;
-        return `<td class="${typeof v==="number"?"num":""} ${k==="NOTES"?"wrapcell":""}">${txt}</td>`;}).join("")}</tr>`).join("")}</tbody></table></div>`;
-    $("#results").querySelectorAll("th").forEach(th=>{ const go=()=>{ const h=th.dataset.h;
-      state.tableSort = state.tableSort&&state.tableSort.h===h ? {h,dir:-state.tableSort.dir} : {h,dir:1}; render(); };
-      th.onclick=go; th.onkeydown=e=>{ if(e.key==="Enter"){ go(); } }; });
-    $("#results").querySelectorAll("tbody tr").forEach(tr=>tr.onclick=()=>openDetail(+tr.dataset.id));
+    const cols=tableCols(), vis=cols.filter(h=>!state.hidden.has(h));
+    const groupKeys=["MAKE","MODEL","YEAR","AGENT","BUY FROM","SOLD TO","RESERVE TO","LAST LOCATION","COLOR","MARKETPLACE"];
+    const groupable=["Status",...groupKeys.map(k=>cols.find(h=>norm(h)===k)).filter(h=>h&&!state.emptyCols.includes(h))];
+    const sortOf=h=> state.tableSort&&state.tableSort.h===h ? (state.tableSort.dir>0?"ascending":"descending") : "none";
+    const cls=h=> (isNumCol(h)?"num ":"") + (norm(h)==="STOCK"?"stick1":"");
+    $("#results").innerHTML=`
+    <div class="ttools">
+      <label>Group by <select id="tGroup"><option value="">No grouping</option>${groupable.map(h=>`<option value="${esc(h)}"${state.groupBy===h?" selected":""}>${esc(label(h))}</option>`).join("")}</select></label>
+      <details class="colmenu" id="colMenu"${state.colMenuOpen?" open":""}><summary class="btn">Columns <span class="muted">${vis.length} of ${cols.length}</span></summary>
+        <div class="colpanel">
+          <div class="colpanel-actions"><button type="button" class="linkbtn" data-act="all">Show all</button><button type="button" class="linkbtn" data-act="empty">Hide empty columns</button></div>
+          ${cols.map(h=>`<label><input type="checkbox" data-col="${esc(h)}"${state.hidden.has(h)?"":" checked"}>${esc(label(h))}${state.emptyCols.includes(h)?`<span class="empty-tag">empty</span>`:""}</label>`).join("")}
+        </div></details>
+      <label class="chk"><input type="checkbox" id="tCompact"${state.compact?" checked":""}>Compact rows</label>
+      <button class="btn" id="tClear"${anyColFilter()?"":" hidden"}>Clear column filters</button>
+      <span class="hint">Click a header to sort. In number columns, filter with &gt;30, &lt;50000 or 10-20.</span>
+    </div>
+    <div class="tablewrap${state.compact?" compact":""}" id="tw"><table>
+      <thead>
+        <tr class="hrow"><th class="sel stick0" scope="col"><input type="checkbox" id="selAll" aria-label="Select all shown vehicles"></th>${vis.map(h=>`<th scope="col" data-h="${esc(h)}" class="${cls(h)}" tabindex="0" aria-sort="${sortOf(h)}">${esc(label(h))}<span class="arr" aria-hidden="true"></span></th>`).join("")}</tr>
+        <tr class="frow"><th class="sel stick0"></th>${vis.map(h=>`<th class="${cls(h)}"><input type="text" data-f="${esc(h)}" value="${esc(state.colFilters[h]||"")}" placeholder="${isNumCol(h)?"e.g. >20":"Filter"}" aria-label="Filter ${esc(label(h))}"></th>`).join("")}</tr>
+      </thead>
+      <tbody id="tbody"></tbody><tfoot id="tfoot"></tfoot></table></div>
+    <div class="selbar" id="selbar" hidden></div><div class="tspacer"></div>`;
+    state.vis=vis;
+    wireTable();
+    renderBody(rows);
+  }
+
+  function cellHTML(r,h){
+    const k=norm(h), v=colVal(r,h), link=r.links[k], c=isNumCol(h)?"num":"";
+    if(state.virt.has(h) && h==="Status"){ const [sl,sc]=STATUS[r.status]; return `<td><span class="status ${sc}">${sl}</span></td>`; }
+    if(state.virt.has(h) && h==="Margin") return `<td class="num ${v==null?"":v>=0?"pos":"neg"}">${v==null?"":(v>0?"+":"")+money(v)}</td>`;
+    if(k==="STOCK DAYS" && typeof v==="number")
+      return `<td class="num"><span class="mini" aria-hidden="true"><i style="width:${Math.min(100,v/45*100)}%;background:${ageColor(v)}"></i></span><b style="color:${ageColor(v)}">${v}</b></td>`;
+    let txt = isMoneyCol(h)&&typeof v==="number" ? money(v) : fmtCell(v,k);
+    txt=esc(txt);
+    if(link) txt=`<a class="link" href="${esc(link)}" target="_blank" rel="noopener">${txt||"Open"}</a>`;
+    if(k==="NOTES") return `<td class="notes"><div class="clamp" title="${esc(v??"")}">${txt}</div></td>`;
+    if(k==="STOCK") return `<td class="stick1 stockcell">${txt}</td>`;
+    return `<td class="${c}">${txt}</td>`;
+  }
+  const rowHTML=r=>`<tr data-id="${r.id}" tabindex="0" class="${state.selected.has(r.id)?"picked":""}"><td class="sel stick0"><input type="checkbox" data-id="${r.id}"${state.selected.has(r.id)?" checked":""} aria-label="Select ${esc(g(r,"STOCK")??"vehicle")}"></td>${state.vis.map(h=>cellHTML(r,h)).join("")}</tr>`;
+
+  function stats(list){
+    const s=f=>list.reduce((a,r)=>a+(f(r)??0),0); const d=list.filter(r=>r.days!=null);
+    return {n:list.length,cost:s(r=>r.cost),sell:s(r=>r.sell),margin:s(r=>r.margin),hasM:list.some(r=>r.margin!=null),
+      days:d.length?d.reduce((a,r)=>a+r.days,0)/d.length:null};
+  }
+
+  function renderBody(rows){
+    const vis=state.vis, n=vis.length+1;
+    let html="";
+    if(!rows.length){
+      html=`<tr class="none"><td colspan="${n}">No vehicles match these filters. Clear a column filter or the search to see more.</td></tr>`;
+    } else if(state.groupBy){
+      const gb=state.groupBy, groups=new Map();
+      rows.forEach(r=>{ const v=colVal(r,gb); const key=v==null||v===""?"\u0000":String(v instanceof Date?v.toISOString():v);
+        if(!groups.has(key)) groups.set(key,{v,list:[]}); groups.get(key).list.push(r); });
+      const keys=[...groups.keys()].sort((a,b)=>a==="\u0000"?1:b==="\u0000"?-1:cmp(groups.get(a).v,groups.get(b).v));
+      for(const key of keys){
+        const {v,list}=groups.get(key), st=stats(list), open=!state.collapsed.has(key);
+        const name = key==="\u0000" ? "Not set" : typeof v==="string" ? title(v) : fmtCell(v,norm(gb));
+        html+=`<tr class="grp" data-g="${esc(key)}" tabindex="0" aria-expanded="${open}"><td colspan="${n}"><span class="gin">
+          <span class="chev" aria-hidden="true">▸</span><span class="gname">${esc(name)}</span>
+          <span class="gstat"><b>${st.n}</b> ${st.n===1?"vehicle":"vehicles"}</span>
+          <span class="gstat">Cost <b>${moneyShort(st.cost)}</b></span><span class="gstat">Sell <b>${moneyShort(st.sell)}</b></span>
+          ${st.hasM?`<span class="gstat">Margin <b class="${st.margin>=0?"pos":"neg"}">${moneyShort(st.margin)}</b></span>`:""}
+          ${st.days!=null?`<span class="gstat">Avg <b style="color:${ageColor(st.days)}">${st.days.toFixed(1)}</b> days in stock</span>`:""}
+        </span></td></tr>`;
+        if(open) html+=list.map(rowHTML).join("");
+      }
+    } else html=rows.map(rowHTML).join("");
+    $("#tbody").innerHTML=html;
+
+    // totals row
+    const st=stats(rows); let labelled=false;
+    $("#tfoot").innerHTML = rows.length ? `<tr><td class="sel stick0"></td>${vis.map(h=>{
+      const k=norm(h), cl=(isNumCol(h)?"num ":"")+(k==="STOCK"?"stick1":"");
+      let t="";
+      if(isMoneyCol(h)){ const sum=rows.reduce((a,r)=>a+(typeof colVal(r,h)==="number"?colVal(r,h):0),0); t=money(sum); }
+      else if(k==="STOCK DAYS"||k==="MILES"){ const xs=rows.map(r=>colVal(r,h)).filter(x=>typeof x==="number"); t=xs.length?`avg ${nf0.format(xs.reduce((a,b)=>a+b,0)/xs.length)}`:""; }
+      else if(!labelled){ labelled=true; t=`Totals for ${st.n}`; }
+      return `<td class="${cl}${h==="Margin"&&state.virt.has(h)?(st.margin>=0?" pos":" neg"):""}">${esc(t)}</td>`;}).join("")}</tr>` : "";
+
+    // select-all checkbox
+    const shown=rows.map(r=>r.id), nSel=shown.filter(id=>state.selected.has(id)).length, sa=$("#selAll");
+    sa.checked = shown.length>0 && nSel===shown.length; sa.indeterminate = nSel>0 && nSel<shown.length;
+
+    // selection bar
+    const sel=state.rows.filter(r=>state.selected.has(r.id)), bar=$("#selbar");
+    if(!sel.length){ bar.hidden=true; bar.innerHTML=""; }
+    else { const s2=stats(sel); bar.hidden=false;
+      bar.innerHTML=`<b>${s2.n} selected</b><span>Cost <b>${money(s2.cost)}</b></span><span>Sell <b>${money(s2.sell)}</b></span>
+        ${s2.hasM?`<span>Margin <b>${(s2.margin>0?"+":"")+money(s2.margin)}</b>${s2.cost?` (${(s2.margin/s2.cost*100).toFixed(1)}%)`:""}</span>`:""}
+        ${s2.days!=null?`<span>Avg <b>${s2.days.toFixed(1)}</b> days in stock</span>`:""}
+        <span class="grow"></span>
+        <label class="chk"><input type="checkbox" id="onlySel"${state.onlySel?" checked":""}>Show only selected</label>
+        <button class="btn" id="selClear">Clear selection</button>`; }
+    $("#tClear").hidden=!anyColFilter();
+  }
+
+  function refreshTable(){ const rows=filtered(); renderSummary(rows); setCount(rows); renderBody(rows); }
+
+  function wireTable(){
+    const tw=$("#tw"); let t;
+    tw.addEventListener("input",e=>{ const h=e.target.dataset.f; if(h==null) return;
+      state.colFilters[h]=e.target.value; clearTimeout(t); t=setTimeout(refreshTable,120); });
+    tw.addEventListener("click",e=>{
+      const el=e.target;
+      if(el.id==="selAll"){ const rows=filtered(); rows.forEach(r=> el.checked ? state.selected.add(r.id) : state.selected.delete(r.id)); refreshTable(); return; }
+      if(el.matches("input[data-id]")){ const id=+el.dataset.id; el.checked?state.selected.add(id):state.selected.delete(id); if(!state.selected.size) state.onlySel=false; refreshTable(); return; }
+      if(el.closest("input,a")) return;
+      const th=el.closest(".hrow th[data-h]"); if(th){ sortBy(th.dataset.h); return; }
+      const gr=el.closest("tr.grp"); if(gr){ toggleGroup(gr.dataset.g); return; }
+      const tr=el.closest("tr[data-id]"); if(tr) openDetail(+tr.dataset.id);
+    });
+    tw.addEventListener("keydown",e=>{
+      if(e.target.matches("input")) return;
+      const th=e.target.closest(".hrow th[data-h]"), gr=e.target.closest("tr.grp"), tr=e.target.closest("tr[data-id]");
+      if(e.key==="Enter"||(e.key===" "&&(gr||tr))){
+        if(th){ e.preventDefault(); sortBy(th.dataset.h); }
+        else if(gr){ e.preventDefault(); toggleGroup(gr.dataset.g); }
+        else if(tr){ e.preventDefault(); if(e.key===" "){ const id=+tr.dataset.id; state.selected.has(id)?state.selected.delete(id):state.selected.add(id); refreshTable(); $(`tr[data-id="${id}"]`)?.focus(); } else openDetail(+tr.dataset.id); }
+      } else if((e.key==="ArrowDown"||e.key==="ArrowUp") && (tr||gr)){
+        e.preventDefault(); const all=[...$("#tbody").querySelectorAll("tr[tabindex]")]; const i=all.indexOf(tr||gr);
+        all[Math.max(0,Math.min(all.length-1,i+(e.key==="ArrowDown"?1:-1)))]?.focus();
+      }
+    });
+    $("#selbar").addEventListener("click",e=>{
+      if(e.target.id==="selClear"){ state.selected.clear(); state.onlySel=false; refreshTable(); }
+      if(e.target.id==="onlySel"){ state.onlySel=e.target.checked; refreshTable(); }
+    });
+    $("#tGroup").onchange=e=>{ state.groupBy=e.target.value; state.collapsed.clear(); refreshTable(); };
+    $("#tCompact").onchange=e=>{ state.compact=e.target.checked; tw.classList.toggle("compact",state.compact);
+      try{ localStorage.setItem("inv-viewer-compact",state.compact?"1":"0"); }catch(e){} };
+    $("#tClear").onclick=()=>{ state.colFilters={}; tw.querySelectorAll("input[data-f]").forEach(i=>i.value=""); refreshTable(); };
+    const menu=$("#colMenu");
+    menu.addEventListener("toggle",()=>{ state.colMenuOpen=menu.open; });
+    menu.addEventListener("change",e=>{ const h=e.target.dataset.col; if(h==null) return;
+      e.target.checked?state.hidden.delete(h):state.hidden.add(h); delete state.colFilters[h]; saveHidden(); renderTable(filtered()); });
+    menu.addEventListener("click",e=>{ const act=e.target.dataset.act; if(!act) return;
+      if(act==="all") state.hidden.clear(); else state.emptyCols.forEach(h=>state.hidden.add(h));
+      saveHidden(); renderTable(filtered()); });
+  }
+  document.addEventListener("click",e=>{ const m=$("#colMenu"); if(m&&m.open&&!m.contains(e.target)){ m.open=false; } });
+
+  function sortBy(h){
+    const cur=state.tableSort;
+    state.tableSort = !cur||cur.h!==h ? {h,dir:1} : cur.dir===1 ? {h,dir:-1} : null;
+    $("#tw").querySelectorAll(".hrow th[data-h]").forEach(th=>th.setAttribute("aria-sort",
+      state.tableSort&&state.tableSort.h===th.dataset.h?(state.tableSort.dir>0?"ascending":"descending"):"none"));
+    refreshTable();
+  }
+  function toggleGroup(k){
+    state.collapsed.has(k)?state.collapsed.delete(k):state.collapsed.add(k); refreshTable();
+    $(`tr.grp[data-g="${CSS.escape(k)}"]`)?.focus();
   }
 
   function openDetail(id){
@@ -479,12 +736,22 @@ dialog .close{border:0;background:var(--sunk);border-radius:8px;width:36px;heigh
   ["dragenter","dragover"].forEach(t=>document.addEventListener(t,e=>{ e.preventDefault(); $("#zone").classList.add("over"); }));
   ["dragleave","drop"].forEach(t=>document.addEventListener(t,e=>{ e.preventDefault(); if(t==="drop"||!e.relatedTarget) $("#zone").classList.remove("over"); }));
   document.addEventListener("drop",e=>{ const f=e.dataTransfer&&e.dataTransfer.files[0]; if(f) handleFile(f); });
-  $("#q").oninput=render; $("#fStatus").onchange=render; $("#sort").onchange=render;
-  const setView=v=>{ state.view=v; $("#vCards").setAttribute("aria-pressed",v==="cards"); $("#vTable").setAttribute("aria-pressed",v==="table");
-    try{ localStorage.setItem("inv-viewer-view",v); }catch(e){} render(); };
-  $("#vCards").onclick=()=>setView("cards"); $("#vTable").onclick=()=>setView("table");
+  $("#q").oninput=render; $("#fStatus").onchange=render; $("#sort").onchange=()=>{ state.tableSort=null; render(); };
+  function syncTabs(){
+    [["cards","#tabCards"],["table","#tabTable"]].forEach(([v,id])=>{ const b=$(id), on=state.view===v;
+      b.setAttribute("aria-selected",on); b.tabIndex=on?0:-1; });
+    $("#results").setAttribute("aria-labelledby",state.view==="cards"?"tabCards":"tabTable");
+  }
+  const setView=v=>{ if(state.view===v) return; state.view=v; syncTabs();
+    try{ localStorage.setItem("inv-viewer-view",v); }catch(e){}
+    try{ history.replaceState(null,"","#"+v); }catch(e){}
+    render(); };
+  $("#tabCards").onclick=()=>setView("cards"); $("#tabTable").onclick=()=>setView("table");
+  $(".tabs").addEventListener("keydown",e=>{ if(e.key!=="ArrowLeft"&&e.key!=="ArrowRight") return;
+    e.preventDefault(); setView(state.view==="cards"?"table":"cards"); $(state.view==="cards"?"#tabCards":"#tabTable").focus(); });
   try{ const v=localStorage.getItem("inv-viewer-view"); if(v==="table"||v==="cards") state.view=v; }catch(e){}
-  $("#vCards").setAttribute("aria-pressed",state.view==="cards"); $("#vTable").setAttribute("aria-pressed",state.view==="table");
+  if(location.hash==="#table"||location.hash==="#cards") state.view=location.hash.slice(1);
+  syncTabs();
 
   if(typeof XLSX==="undefined"){ $("#err").textContent="The spreadsheet reader didn’t load. Check your connection and reload the page."; }
   if(restore()) show();
